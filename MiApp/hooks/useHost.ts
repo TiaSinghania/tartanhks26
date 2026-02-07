@@ -1,15 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import * as NearbyConnections from "expo-nearby-connections";
-import { Peer, Message } from '../constants/types';
 
-export function useHost(deviceName = "My Host Device") {
-  const [myPeerId, setMyPeerId] = useState<any|null>(null);
-  const [connectedPeers, setConnectedPeers] = useState<any[]>([]);
+type PeerStatus = "CONNECTED_UNVERIFIED" | "VERIFIED";
+
+type HostPeer = {
+  peerId: string;
+  status: PeerStatus;
+};
+
+type AppMessage =
+  | { type: "JOIN_REQUEST"; eventCode: string }
+  | { type: "JOIN_ACCEPTED" }
+  | { type: "JOIN_REJECTED"; reason: string };
+
+export function useHost(eventCode: string, optEventName?: string | null
+) {
+  const eventName = optEventName ?? "My Host Device";
+  const [myPeerId, setMyPeerId] = useState<string | null>(null);
+  const [peers, setPeers] = useState<Record<string, HostPeer>>({});
   const [isAdvertising, setIsAdvertising] = useState(false);
 
-  // 1. Manage the Advertisement
+  /* ----------------------------------------
+     1. Advertising lifecycle
+  ---------------------------------------- */
   useEffect(() => {
-    NearbyConnections.startAdvertise(deviceName)
+    NearbyConnections.startAdvertise(eventName)
       .then((peerId: string) => {
         setMyPeerId(peerId);
         setIsAdvertising(true);
@@ -19,43 +34,110 @@ export function useHost(deviceName = "My Host Device") {
         console.error("Failed to start advertising:", error);
       });
 
-    // Cleanup: This runs when the component using the hook "unmounts"
     return () => {
       NearbyConnections.stopAdvertise();
       setIsAdvertising(false);
     };
-  }, [deviceName]);
+  }, [eventName]);
 
-  // 2. Manage the Listeners
+  /* ----------------------------------------
+     2. Connection + protocol listeners
+  ---------------------------------------- */
   useEffect(() => {
-    // When someone wants to join, we automatically accept for now
-    const onInvitationListener = NearbyConnections.onInvitationReceived((data: NearbyConnections.InvitationReceived) => {
-      console.log("Invitation received from:", data.peerId);
-      NearbyConnections.acceptConnection(data.peerId);
-    });
+    // Auto-accept transport connections
+    const onInvitationListener =
+      NearbyConnections.onInvitationReceived(({ peerId }) => {
+        console.log("Invitation received from:", peerId);
+        NearbyConnections.acceptConnection(peerId);
+      });
 
-    const onConnectedListener = NearbyConnections.onConnected((data: NearbyConnections.Connected) => {
-      console.log("Peer connected:", data.peerId);
-      setConnectedPeers((prev) => [...prev, data.peerId]);
-    });
+    // Transport connection established
+    const onConnectedListener =
+      NearbyConnections.onConnected(({ peerId }) => {
+        console.log("Peer transport-connected:", peerId);
 
-    const onDisconnectedListener = NearbyConnections.onDisconnected((data: NearbyConnections.Disconnected) => {
-      console.log("Peer disconnected:", data.peerId);
-      setConnectedPeers((prev) => prev.filter((id) => id !== data.peerId));
-    });
+        setPeers((prev) => ({
+          ...prev,
+          [peerId]: {
+            peerId,
+            status: "CONNECTED_UNVERIFIED",
+          },
+        }));
+      });
 
-    // Cleanup: Unsubscribe from listeners to prevent memory leaks
+    // Handle app-level messages
+    const onTextListener =
+      NearbyConnections.onTextReceived(({ peerId, text }) => {
+        let message: AppMessage;
+
+        try {
+          message = JSON.parse(text) as AppMessage;
+        } catch {
+          console.warn("Invalid text from", peerId);
+          return;
+        }
+
+        if (message.type === "JOIN_REQUEST") {
+          if (message.eventCode === eventCode) {
+            console.log("Peer verified:", peerId);
+
+            NearbyConnections.sendText(
+              peerId,
+              JSON.stringify({ type: "JOIN_ACCEPTED" })
+            );
+
+            setPeers((prev) => ({
+              ...prev,
+              [peerId]: {
+                peerId,
+                status: "VERIFIED",
+              },
+            }));
+          } else {
+            console.log("Peer failed verification:", peerId);
+
+            NearbyConnections.sendText(
+              peerId,
+              JSON.stringify({
+                type: "JOIN_REJECTED",
+                reason: "Invalid event code",
+              })
+            );
+
+            NearbyConnections.disconnect(peerId);
+          }
+        }
+      });
+
+    const onDisconnectedListener =
+      NearbyConnections.onDisconnected(({ peerId }) => {
+        console.log("Peer disconnected:", peerId);
+
+        setPeers((prev) => {
+          const next = { ...prev };
+          delete next[peerId];
+          return next;
+        });
+      });
+
     return () => {
       onInvitationListener();
       onConnectedListener();
+      onTextListener();
       onDisconnectedListener();
     };
-  }, []);
+  }, [eventCode]);
 
-  // Return the data so your UI can use it
+  /* ----------------------------------------
+     3. Derived data for UI
+  ---------------------------------------- */
+  const verifiedPeers = Object.values(peers)
+    .filter((p) => p.status === "VERIFIED")
+    .map((p) => p.peerId);
+
   return {
     myPeerId,
-    connectedPeers,
-    isAdvertising
+    isAdvertising,
+    verifiedPeers,
   };
 }

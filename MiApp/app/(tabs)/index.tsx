@@ -1,39 +1,108 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert} from 'react-native';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
-import { Peer, Message, RoomProps } from '../../constants/types';
-
+import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
+// Note: You'll need to install this: npx expo install @react-native-async-storage/async-storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // --- BLE CONFIG ---
 const SERVICE_UUID = '7A9F0000-0000-0000-0000-000000000000'; // your custom app UUID
 const ID_ROTATION_INTERVAL = 1000 * 60 * 5; // rotate ID every 5 min
 
 export default function MainApp() {
-  const [appState, setAppState] = useState('idle'); // 'idle', 'hosting', 'joining'
+  const [appState, setAppState] = useState('idle'); // 'idle', 'hosting', 'joining', 'creating'
+  const [eventCode, setEventCode] = useState<string | null>(null);
+  const [eventName, setEventName] = useState<string | null>(null);
+
+  const handleCreateEvent = async () => {
+    if (!eventName || eventName.trim() === "") {
+      Alert.alert("Error", "Please enter an event name.");
+      return;
+    }
+
+    setAppState('creating');
+
+    try {
+      const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+      await AsyncStorage.multiSet([
+        ['saved_event_code', randomCode],
+        ['saved_event_name', eventName],
+      ]);
+
+      setEventCode(randomCode);
+
+      Alert.alert(
+        "Success",
+        `Event "${eventName}" created! Your code is: ${randomCode}`
+      );
+    } catch {
+      Alert.alert("Error", "Failed to save the event to your device.");
+    } finally {
+      setAppState('idle');
+    }
+  };
+
 
   return (
     <View style={styles.container}>
       {appState === 'idle' && (
         <View style={styles.center}>
-          <Text style={styles.title}>Nearby Messenger</Text>
-          <Button title="Start an Event (Host)" onPress={() => setAppState('hosting')} />
+          <Text style={styles.title}>coolest name ever</Text>
+          
+          <TextInput
+              style={styles.input}
+              placeholder="Enter Event Name"
+              value={eventName ?? ""}
+              onChangeText={setEventName}
+            />
+          <Button 
+            title={"Create an Event"} 
+            onPress={handleCreateEvent} 
+          />
+
+          <View style={{ height: 20 }} />
+          <Button
+            title="Start an Event (Host)"
+            onPress={() => {
+              if (eventCode !== null) {
+                setAppState('hosting');
+              } else {
+                Alert.alert("Error", "No event started! Try creating an event first.");
+              }
+            }}
+          />
           <View style={{ height: 20 }} />
           <Button title="Join an Event" onPress={() => setAppState('joining')} />
         </View>
       )}
 
-      {appState === 'hosting' && <HostRoom onExit={() => setAppState('idle')} />}
+      {appState === 'hosting' && (
+        <HostRoom
+          eventCode={eventCode}
+          eventName={eventName}
+          onExit={() => {
+            setEventCode(null);
+            setEventName(null);
+            setAppState('idle');
+          }}
+        />
+      )}
+
       {appState === 'joining' && <JoinRoom onExit={() => setAppState('idle')} />}
     </View>
   );
 }
 
 // --- HOST VIEW ---
-function HostRoom({ onExit }: RoomProps) {
-  const { myPeerId, connectedPeers } = useHost("My Room");
-  const { messages, sendMessage } = useChat(connectedPeers);
+function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
+  if (eventCode === null) {
+    return null;
+  }
+  const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
+  const { messages, sendMessage } = useChat(verifiedPeers);
   const [text, setText] = useState("");
   const [bleManager] = useState(new BleManager());
   const [myBLEId, setMyBLEId] = useState(generateTempID());
@@ -79,8 +148,9 @@ function HostRoom({ onExit }: RoomProps) {
 
   return (
     <View style={styles.full}>
-      <Text style={styles.header}>Hosting: {myPeerId}</Text>
-      <Text>Connected: {connectedPeers.length} people</Text>
+      <Text style={styles.header}>Hosting: {eventName}</Text>
+      <Text style={styles.header}>Event Code: {eventCode}</Text>
+      <Text>Connected: {verifiedPeers.length} people</Text>
       <Text>Nearby Peers: {nearbyPeers.length}</Text>
 
       {nearbyPeers.map(p => (
@@ -91,44 +161,46 @@ function HostRoom({ onExit }: RoomProps) {
 
       <View style={styles.inputRow}>
         <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." />
-        <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
+        <Button title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} />
       </View>
       <Button title="End Event" color="red" onPress={onExit} />
     </View>
   );
+  
 }
 
 // --- JOIN VIEW ---
-function JoinRoom({ onExit }: RoomProps) {
-  const { discoveredPeers, joinHost, isConnected, connectedHostId } = useJoin("Guest");
-  const { messages, sendMessage } = useChat(isConnected ? [connectedHostId] : []);
+function JoinRoom({ onExit }: JoinRoomProps) {
+  const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
+  const { messages, sendMessage } = useChat(
+    joinState === "IN_ROOM" && connectedHostId
+    ? [connectedHostId]
+    : []);
   const [text, setText] = useState("");
+
+  if (joinState === "IN_ROOM") {
+    return (
+      <View style={styles.full}>
+        <Text style={styles.header}>Connected to Host</Text>
+        <ChatList messages={messages} />
+        <View style={styles.inputRow}>
+          <TextInput style={styles.input} value={text} onChangeText={setText} />
+          <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
+        </View>
+        <Button title="Leave" onPress={onExit} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.full}>
-      {isConnected ? (
-        <>
-          <Text style={styles.header}>Connected to Host</Text>
-          <ChatList messages={messages} />
-          <View style={styles.inputRow}>
-            <TextInput style={styles.input} value={text} onChangeText={setText} />
-            <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
-          </View>
-          <Button title="Leave" onPress={onExit} />
-        </>
-      ) : (
-        <>
-          <Text style={styles.header}>Nearby Events</Text>
-          {discoveredPeers.map(peer => (
-            <Button
-              key={peer.peerId}
-              title={`Join ${peer.peerName}`}
-              onPress={() => joinHost(peer.peerId)}
-            />
-          ))}
-          <Button title="Back" onPress={onExit} />
-        </>
-      )}
+      <TextInput 
+        style={styles.input} 
+        placeholder="Enter Access Code" 
+        value={accessCode} 
+        onChangeText={setAccessCode} 
+      />
+      <Button title="Back" onPress={onExit} />
     </View>
   );
 }
@@ -168,9 +240,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
   header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   inputRow: { flexDirection: 'row', marginBottom: 10 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5 },
+  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5,
+  width: '100%',
+  height: 40,
+  paddingHorizontal: 10,
+  paddingVertical: 0,
+  fontSize: 16,
+  textAlignVertical: 'center', // Android fix
+  },
   chatList: { flex: 1, marginVertical: 20 },
   msg: { padding: 10, borderRadius: 10, marginVertical: 4, maxWidth: '80%' },
   myMsg: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
-  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#E9E9EB' }
+  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#E9E9EB' },
+
 });
