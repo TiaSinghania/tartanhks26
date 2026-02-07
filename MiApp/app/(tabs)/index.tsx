@@ -6,8 +6,15 @@ import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
 import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { CustomAlert } from '@/components/CustomAlert';
 // Note: You'll need to install this: npx expo install @react-native-async-storage/async-storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type AlertInfo = {
+  title: string;
+  message: string;
+  buttons?: { text: string; onPress: () => void; type?: 'primary' | 'secondary' | 'danger' }[];
+};
 
 
 export default function MainApp() {
@@ -15,9 +22,28 @@ export default function MainApp() {
   const [eventCode, setEventCode] = useState<string | null>(null);
   const [eventName, setEventName] = useState<string | null>(null);
 
+  // --- ALERT STATE ---
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertInfo, setAlertInfo] = useState<AlertInfo>({
+    title: '',
+    message: '',
+    buttons: [],
+  });
+  function showAlert(title: string, message: string) {
+    setAlertInfo({
+      title,
+      message,
+      buttons: [
+        { text: 'OK', onPress: () => setAlertVisible(false), type: 'primary' },
+      ],
+    });
+    setAlertVisible(true);
+  }
+
+
   const handleCreateEvent = async () => {
     if (!eventName || eventName.trim() === "") {
-      Alert.alert("Error", "Please enter an event name.");
+      showAlert("Error", "Please enter an event name.");
       return;
     }
 
@@ -33,12 +59,9 @@ export default function MainApp() {
 
       setEventCode(randomCode);
 
-      Alert.alert(
-        "Success",
-        `Event "${eventName}" created! Your code is: ${randomCode}`
-      );
+      showAlert("Success", `Event "${eventName}" created! Your code is: ${randomCode}`);
     } catch {
-      Alert.alert("Error", "Failed to save the event to your device.");
+      showAlert("Error", "Failed to save the event to your device.");
     } finally {
       setAppState('idle');
     }
@@ -63,6 +86,13 @@ export default function MainApp() {
             onPress={handleCreateEvent} 
           />
 
+          <CustomAlert
+            visible={alertVisible}
+            title={alertInfo.title}
+            message={alertInfo.message}
+            buttons={alertInfo.buttons}
+          />
+
           <View style={{ height: 40 }} />
           <PrimaryButton
             title="Start an Event (Host)"
@@ -70,7 +100,8 @@ export default function MainApp() {
               if (eventCode !== null) {
                 setAppState('hosting');
               } else {
-                Alert.alert("Error", "No event started! Try creating an event first.");
+                showAlert("Error", "No event started! Try creating an event first.");
+                
               }
             }}
           />
@@ -135,6 +166,7 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
 }
 
 // --- JOIN VIEW ---
+// TODO: LOL ADD A REQUEST TO JOIN BUTTON
 function JoinRoom({ onExit }: JoinRoomProps) {
   const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
   const { messages, sendMessage } = useChat(
