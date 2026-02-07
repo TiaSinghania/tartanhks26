@@ -4,6 +4,7 @@ import { COLORS, BUTTON, BUTTON_TEXT, INPUT, INPUT_TEXT, CHAT, FONT_FAMILY } fro
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
+import { useCrowdCrushDetection } from '../../hooks/useCrowdCrushDetection';
 import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { CustomAlert } from '@/components/CustomAlert';
@@ -134,8 +135,10 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
   if (eventCode === null) {
     return null;
   }
-  const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
+  const { myPeerId, verifiedPeers, peerRSSIMap } = useHost(eventCode, eventName);
   const { messages, sendMessage } = useChat(verifiedPeers);
+  const { alert: crowdCrushAlert } = useCrowdCrushDetection(verifiedPeers, peerRSSIMap);
+  
   const [text, setText] = useState("");
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [panicMessage, setPanicMessage] = useState("");
@@ -194,6 +197,16 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
       <Text style={styles.header}>Hosting: {eventName}</Text>
       <Text style={styles.header}>Event Code: {eventCode}</Text>
       <Text style={styles.text}>Connected: {verifiedPeers.length} people</Text>
+      
+      {/* Crowd Crush Alert */}
+      {crowdCrushAlert.detected && (
+        <View style={[styles.crowdCrushAlert, styles[`alert_${crowdCrushAlert.severity}`]]}>
+          <Text style={styles.crowdCrushAlertText}>{crowdCrushAlert.message}</Text>
+          <Text style={styles.crowdCrushAlertSubtext}>
+            {crowdCrushAlert.closestPeers} of {crowdCrushAlert.totalNearby} people moving toward you
+          </Text>
+        </View>
+      )}
       
       <ChatList messages={filteredMessages} />
 
@@ -257,12 +270,16 @@ function JoinRoom({ onExit }: JoinRoomProps) {
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [panicMessage, setPanicMessage] = useState("");
   
-  const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
+  const { discoveredPeers, joinHost, joinState, connectedHostId, peerRSSIMap } = useJoin("Guest");
   
   const { messages, sendMessage } = useChat(
     joinState === "IN_ROOM" && connectedHostId
     ? [connectedHostId]
     : []);
+
+  // Get crowd crush detection for all peers (host + other members if available)
+  const allConnectedPeers = connectedHostId ? [connectedHostId] : [];
+  const { alert: crowdCrushAlert } = useCrowdCrushDetection(allConnectedPeers, peerRSSIMap);
 
   // Handle panic alerts
   React.useEffect(() => {
@@ -316,6 +333,17 @@ function JoinRoom({ onExit }: JoinRoomProps) {
     return (
       <View style={styles.full}>
         <Text style={styles.header}>Connected to Host</Text>
+        
+        {/* Crowd Crush Alert */}
+        {crowdCrushAlert.detected && (
+          <View style={[styles.crowdCrushAlert, styles[`alert_${crowdCrushAlert.severity}`]]}>
+            <Text style={styles.crowdCrushAlertText}>{crowdCrushAlert.message}</Text>
+            <Text style={styles.crowdCrushAlertSubtext}>
+              {crowdCrushAlert.closestPeers} of {crowdCrushAlert.totalNearby} people moving toward you
+            </Text>
+          </View>
+        )}
+        
         <ChatList messages={filteredMessages} />
         <View style={styles.inputRow}>
           <TextInput style={styles.input} value={text} onChangeText={setText} />
@@ -539,6 +567,38 @@ const styles = StyleSheet.create({
     borderColor: COLORS.danger,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+
+  // --- Crowd Crush Alert ---
+  crowdCrushAlert: {
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 10,
+    borderLeftWidth: 4,
+  },
+  alert_high: {
+    backgroundColor: '#ffebee',
+    borderLeftColor: '#d32f2f',
+  },
+  alert_medium: {
+    backgroundColor: '#fff3e0',
+    borderLeftColor: '#f57c00',
+  },
+  alert_low: {
+    backgroundColor: '#f1f8e9',
+    borderLeftColor: '#558b2f',
+  },
+  crowdCrushAlertText: {
+    fontFamily: FONT_FAMILY?.sansMedium,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  crowdCrushAlertSubtext: {
+    fontFamily: FONT_FAMILY?.sans,
+    fontSize: 12,
+    color: '#424242',
   },
 
   // --- Modal / Panic Modal ---

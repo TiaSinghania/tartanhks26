@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import * as NearbyConnections from "expo-nearby-connections";
+import { BleManager, Device } from "react-native-ble-plx";
 
 type PeerStatus = "CONNECTED_UNVERIFIED" | "VERIFIED";
 
 type HostPeer = {
   peerId: string;
   status: PeerStatus;
+  rssi?: number;
 };
 
 type AppMessage =
   | { type: "JOIN_REQUEST"; eventCode: string }
   | { type: "JOIN_ACCEPTED" }
-  | { type: "JOIN_REJECTED"; reason: string };
+  | { type: "JOIN_REJECTED"; reason: string }
+  | { type: "RSSI_UPDATE"; peerId: string; rssi: number };
 
 export function useHost(eventCode: string, optEventName?: string | null
 ) {
@@ -19,6 +22,7 @@ export function useHost(eventCode: string, optEventName?: string | null
   const [myPeerId, setMyPeerId] = useState<string | null>(null);
   const [peers, setPeers] = useState<Record<string, HostPeer>>({});
   const [isAdvertising, setIsAdvertising] = useState(false);
+  const [peerRSSIMap, setPeerRSSIMap] = useState<Record<string, number>>({});
 
   /* ----------------------------------------
      1. Advertising lifecycle
@@ -74,6 +78,12 @@ export function useHost(eventCode: string, optEventName?: string | null
           message = JSON.parse(text) as AppMessage;
         } catch {
           console.warn("Invalid text from", peerId);
+          return;
+        }
+
+        // Handle RSSI updates from peers
+        if (message.type === "RSSI_UPDATE") {
+          setPeerRSSIMap((prev) => ({ ...prev, [message.peerId]: message.rssi }));
           return;
         }
 
@@ -135,9 +145,94 @@ export function useHost(eventCode: string, optEventName?: string | null
     .filter((p) => p.status === "VERIFIED")
     .map((p) => p.peerId);
 
+  // Initialize BLE Manager for reading real RSSI values
+  const bleManager = new BleManager();
+
+  // Periodically query actual RSSI values from connected BLE devices
+  useEffect(() => {
+    let isMounted = true;
+    let scannedDevices: Device[] = [];
+    
+    const interval = setInterval(async () => {
+      try {
+        // First, get the state of the Bluetooth adapter
+        const state = await bleManager.state();
+        if (state !== "PoweredOn") {
+          console.warn("Bluetooth is not powered on");
+          return;
+        }
+
+        const updatedRssiMap: Record<string, number> = { ...peerRSSIMap };
+        scannedDevices = [];
+
+        // Start device scan
+        bleManager.startDeviceScan(
+          null,
+          { allowDuplicates: true },
+          (error, device: Device | null) => {
+            if (error) {
+              console.warn("Scan error:", error);
+              bleManager.stopDeviceScan();
+              return;
+            }
+
+            if (device && device.rssi) {
+              scannedDevices.push(device);
+              // Check if this device matches any of our connected peers
+              for (const peerId of verifiedPeers) {
+                if (device.id === peerId || device.name?.includes(peerId)) {
+                  updatedRssiMap[peerId] = device.rssi;
+                }
+              }
+            }
+          }
+        );
+
+        // Stop scan after 1 second and update RSSI
+        setTimeout(() => {
+          bleManager.stopDeviceScan();
+          if (isMounted) {
+            setPeerRSSIMap(updatedRssiMap);
+          }
+        }, 1000);
+      } catch (error) {
+        console.error("Error updating RSSI values:", error);
+      }
+    }, 1000); // Scan every 1 second
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      bleManager.stopDeviceScan().catch(() => {});
+      bleManager.destroy();
+    };
+  }, [verifiedPeers, peerRSSIMap]);
+
+  // Broadcast RSSI data to all peers periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      for (const peerId of verifiedPeers) {
+        try {
+          NearbyConnections.sendText(
+            peerId,
+            JSON.stringify({
+              type: "RSSI_BROADCAST",
+              rssiMap: peerRSSIMap,
+            })
+          );
+        } catch (error) {
+          console.warn("Failed to send RSSI to", peerId, error);
+        }
+      }
+    }, 1000); // Update every 1 second
+
+    return () => clearInterval(interval);
+  }, [verifiedPeers, peerRSSIMap]);
+
   return {
     myPeerId,
     isAdvertising,
     verifiedPeers,
+    peerRSSIMap,
   };
 }

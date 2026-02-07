@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import * as NearbyConnections from "expo-nearby-connections";
+import { BleManager, Device } from "react-native-ble-plx";
 
 type JoinState =
   | "IDLE"
@@ -10,7 +11,9 @@ type JoinState =
 type AppMessage =
   | { type: "JOIN_REQUEST"; eventCode: string }
   | { type: "JOIN_ACCEPTED" }
-  | { type: "JOIN_REJECTED"; reason: string };
+  | { type: "JOIN_REJECTED"; reason: string }
+  | { type: "RSSI_UPDATE"; peerId: string; rssi: number }
+  | { type: "RSSI_BROADCAST"; rssiMap: Record<string, number> };
 
 export function useJoin(userName = "Guest User") {
   const [myPeerId, setMyPeerId] = useState<string | null>(null);
@@ -18,6 +21,7 @@ export function useJoin(userName = "Guest User") {
   const [joinState, setJoinState] = useState<JoinState>("IDLE");
   const [connectedHostId, setConnectedHostId] = useState<string | null>(null);
   const [pendingEventCode, setPendingEventCode] = useState<string | null>(null);
+  const [peerRSSIMap, setPeerRSSIMap] = useState<Record<string, number>>({});
 
   /* ----------------------------------------
      1. Discovery lifecycle
@@ -47,7 +51,7 @@ export function useJoin(userName = "Guest User") {
 
         setDiscoveredPeers((prev) => {
           if (prev.find((p) => p.peerId === data.peerId)) return prev;
-          return [...prev, data];
+          return [...prev, { ...data }];
         });
       });
 
@@ -58,6 +62,12 @@ export function useJoin(userName = "Guest User") {
         setDiscoveredPeers((prev) =>
           prev.filter((peer) => peer.peerId !== data.peerId)
         );
+        
+        setPeerRSSIMap((prev) => {
+          const next = { ...prev };
+          delete next[data.peerId];
+          return next;
+        });
       });
 
     return () => {
@@ -98,6 +108,18 @@ export function useJoin(userName = "Guest User") {
           message = JSON.parse(text) as AppMessage;
         } catch {
           console.warn("Invalid payload from host");
+          return;
+        }
+
+        // Handle RSSI broadcast from host
+        if (message.type === "RSSI_BROADCAST") {
+          setPeerRSSIMap(message.rssiMap);
+          return;
+        }
+
+        // Handle RSSI updates
+        if (message.type === "RSSI_UPDATE") {
+          setPeerRSSIMap((prev) => ({ ...prev, [message.peerId]: message.rssi }));
           return;
         }
 
@@ -143,11 +165,73 @@ export function useJoin(userName = "Guest User") {
     NearbyConnections.requestConnection(hostPeerId);
   };
 
+  // Initialize BLE Manager for reading real RSSI values
+  const bleManager = new BleManager();
+
+  // Periodically query actual RSSI values from the connected host
+  useEffect(() => {
+    let isMounted = true;
+    let scannedDevices: Device[] = [];
+    
+    const interval = setInterval(async () => {
+      try {
+        if (!connectedHostId) return;
+
+        const state = await bleManager.state();
+        if (state !== "PoweredOn") {
+          console.warn("Bluetooth is not powered on");
+          return;
+        }
+
+        scannedDevices = [];
+
+        // Start device scan
+        bleManager.startDeviceScan(
+          null,
+          { allowDuplicates: true },
+          (error, device: Device | null) => {
+            if (error) {
+              console.warn("Scan error:", error);
+              bleManager.stopDeviceScan();
+              return;
+            }
+
+            if (device && device.rssi) {
+              scannedDevices.push(device);
+              // Check if this is our connected host
+              if (device.id === connectedHostId || device.name?.includes(connectedHostId)) {
+                if (isMounted) {
+                  setPeerRSSIMap({ [connectedHostId]: device.rssi });
+                  console.log(`Host RSSI: ${device.rssi} dBm`);
+                }
+              }
+            }
+          }
+        );
+
+        // Stop scan after 1 second
+        setTimeout(() => {
+          bleManager.stopDeviceScan();
+        }, 1000);
+      } catch (error) {
+        console.warn("Error updating RSSI values:", error);
+      }
+    }, 1000); // Scan every 1 second
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      bleManager.stopDeviceScan().catch(() => {});
+      bleManager.destroy();
+    };
+  }, [connectedHostId]);
+
   return {
     myPeerId,
     discoveredPeers,
     joinState,
     connectedHostId,
     joinHost,
+    peerRSSIMap,
   };
 }

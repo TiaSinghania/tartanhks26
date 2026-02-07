@@ -9,7 +9,22 @@ export function useChat(connectedPeerIds: string[] = []) {
   // 1. Listen for incoming messages
   useEffect(() => {
     const onTextReceivedListener = NearbyConnections.onTextReceived((data: NearbyConnections.TextReceived) => {
-      console.log("New message received:", data.text);
+      let isSystemMessage = false;
+      
+      // Try to parse as JSON to check if it's a system message
+      try {
+        const parsed = JSON.parse(data.text);
+        // Filter out RSSI and system messages
+        if (parsed.type && ['RSSI_BROADCAST', 'RSSI_UPDATE', 'JOIN_REQUEST', 'JOIN_ACCEPTED', 'JOIN_REJECTED'].includes(parsed.type)) {
+          isSystemMessage = true;
+        }
+      } catch (e) {
+        // Not JSON, it's a regular message
+      }
+      
+      if (isSystemMessage) return; // Don't display system messages in chat
+      
+      console.log("New chat message received:", data.text);
       
       setMessages((prev) => [
         ...prev, 
