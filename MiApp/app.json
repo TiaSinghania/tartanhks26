@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.sophizhao.MiApp",
+      "bundleIdentifier": "com.meerapradeepan.MiApp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

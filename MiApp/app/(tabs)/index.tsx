@@ -177,11 +177,20 @@ function JoinRoom({ onExit }: JoinRoomProps) {
     ? [connectedHostId]
     : []);
   const [text, setText] = useState("");
+  const [accessCode, setAccessCode] = useState("");
+  const [bleManager] = useState(new BleManager());
+  const [nearbyPeers, setNearbyPeers] = useState<{ id: string; rssi: number }[]>([]);
+  const [lastAlertTime, setLastAlertTime] = useState<number>(0);
 
   if (joinState === "IN_ROOM") {
     return (
       <View style={styles.full}>
         <Text style={styles.header}>Connected to Host</Text>
+        <Text>Nearby Peers: {nearbyPeers.length}</Text>
+        {nearbyPeers.map(p => (
+          <Text key={p.id}>{p.id} — approx {estimateDistance(p.rssi)} meters away</Text>
+        ))}
+        console.log("nearby peers map for joiner", nearbyPeers);
         <ChatList messages={messages} />
         <View style={styles.inputRow}>
           <TextInput style={styles.input} value={text} onChangeText={setText} />
@@ -191,6 +200,62 @@ function JoinRoom({ onExit }: JoinRoomProps) {
       </View>
     );
   }
+
+  // Start BLE scanning for JoinRoom to capture RSSI to nearby devices (including host)
+  useEffect(() => {
+    const subscription = bleManager.onStateChange(state => {
+      if (state === 'PoweredOn') {
+        bleManager.startDeviceScan([SERVICE_UUID], null, (error, device) => {
+          if (error) return;
+
+          if (device && device.id && device.rssi != null) {
+            const rssi = device.rssi;
+            setNearbyPeers(prev => {
+              const existing = prev.find(p => p.id === device.id);
+              if (existing) {
+                return prev.map(p => p.id === device.id ? { id: p.id, rssi } : p);
+              } else {
+                return [...prev, { id: device.id, rssi }];
+              }
+            });
+          }
+        });
+      }
+    }, true);
+
+    return () => {
+      subscription.remove();
+      bleManager.stopDeviceScan();
+    };
+  }, []);
+
+  // Crowd crush detection: show alert when too many peers are very close
+  useEffect(() => {
+    const now = Date.now();
+    const COOLDOWN_MS = 60 * 1000; // don't spam alerts more than once per minute
+
+    // Define thresholds
+    const CLOSE_RSSI_THRESHOLD = -60; // higher (less negative) means closer
+    const PROPORTION_THRESHOLD = 0.6; // 60% of people
+    const ABSOLUTE_COUNT_THRESHOLD = 8; // 8 or more close people
+
+    // derive unique peer IDs seen via BLE
+    const uniqueIds = Array.from(new Set(nearbyPeers.map(p => p.id)));
+    // count how many are "very close"
+    const closeCount = nearbyPeers.filter(p => p.rssi >= CLOSE_RSSI_THRESHOLD).length;
+
+    // total known people in immediate area: include host if connectedHostId exists and not already in nearby list
+    const totalSeen = uniqueIds.includes(connectedHostId ?? '') ? uniqueIds.length : uniqueIds.length + (connectedHostId ? 1 : 0);
+
+    const proportionClose = totalSeen > 0 ? closeCount / totalSeen : 0;
+
+    if ((closeCount >= ABSOLUTE_COUNT_THRESHOLD || proportionClose >= PROPORTION_THRESHOLD) && (now - lastAlertTime > COOLDOWN_MS)) {
+      Alert.alert('WARNING: Crowd Crush Detected');
+      setLastAlertTime(now);
+    } else{
+      console.log ("No crush: ", { closeCount, totalSeen, proportionClose, nearbyPeers });
+    }
+  }, [nearbyPeers, connectedHostId, lastAlertTime]);
 
   return (
     <View style={styles.full}>
