@@ -9,7 +9,15 @@ export function useChat(connectedPeerIds: string[] = []) {
   // 1. Listen for incoming messages
   useEffect(() => {
     const onTextReceivedListener = NearbyConnections.onTextReceived((data: NearbyConnections.TextReceived) => {
-      console.log("New message received:", data.text);
+      console.log("Raw text recieved:", data.text);
+      
+      // --- HACKY FIX START ---
+      // If the message looks like a system protocol message (JSON), ignore it.
+      // We check if it starts with '{"type":' (ignoring whitespace just in case).
+      if (data.text.trim().startsWith('{"type":')) {
+        console.log("Ignored system message in chat:", data.text);
+        return;
+      }
       
       setMessages((prev) => [
         ...prev, 
