@@ -14,7 +14,7 @@ export function useChat(connectedPeerIds: string[] = []) {
       setMessages((prev) => [
         ...prev, 
         {
-          id: Date.now().toString(), // Unique ID for React lists
+          id: Date.now().toString(),
           senderId: data.peerId,
           text: data.text,
           timestamp: new Date().toLocaleTimeString(),
@@ -26,20 +26,17 @@ export function useChat(connectedPeerIds: string[] = []) {
     return () => {
       onTextReceivedListener();
     };
-  }, []); // Run once on mount
+  }, []);
 
   // 2. Function to send messages
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
 
     try {
-      // If there are multiple people (Host perspective), we send to all
-      // If there is one person (Joiner perspective), it sends to the Host
       for (const id of connectedPeerIds) {
         await NearbyConnections.sendText(id, text);
       }
 
-      // Add our own message to the local list so we can see it
       setMessages((prev) => [
         ...prev,
         {
@@ -58,6 +55,6 @@ export function useChat(connectedPeerIds: string[] = []) {
   return {
     messages,
     sendMessage,
-    clearChat: () => setMessages([]) // Helper to wipe history
+    clearChat: () => setMessages([])
   };
 }

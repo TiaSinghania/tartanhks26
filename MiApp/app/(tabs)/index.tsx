@@ -101,6 +101,57 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
   const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
   const { messages, sendMessage } = useChat(verifiedPeers);
   const [text, setText] = useState("");
+  const [showPanicModal, setShowPanicModal] = useState(false);
+  const [panicMessage, setPanicMessage] = useState("");
+
+  // Handle panic alerts
+  React.useEffect(() => {
+    const latestMessage = messages[messages.length - 1];
+    if (latestMessage && latestMessage.text.startsWith('🚨PANIC🚨')) {
+      Alert.alert(
+        "⚠️ EMERGENCY ALERT ⚠️",
+        latestMessage.text.replace('🚨PANIC🚨', '').trim(),
+        [{ text: "OK" }]
+      );
+    }
+  }, [messages]);
+
+  const handlePanic = () => {
+    setShowPanicModal(true);
+  };
+
+  const sendPanicAlert = () => {
+    const panicText = panicMessage.trim() 
+      ? `🚨PANIC🚨 ${panicMessage.trim()}`
+      : "🚨PANIC🚨 EMERGENCY - Need immediate help!";
+    sendMessage(panicText);
+    setPanicMessage("");
+    setShowPanicModal(false);
+  };
+
+  const cancelPanic = () => {
+    setPanicMessage("");
+    setShowPanicModal(false);
+  };
+
+  // Filter out system messages or format them nicely
+  const filteredMessages = messages.map(msg => {
+    // If message is a join request object, convert it to a user-friendly string
+    if (typeof msg.text === 'object' || (typeof msg.text === 'string' && msg.text.includes('{type'))) {
+      return {
+        ...msg,
+        text: "Someone joined"
+      };
+    }
+    // Don't show panic messages in chat (they're shown as alerts)
+    if (msg.text.startsWith('🚨PANIC🚨')) {
+      return {
+        ...msg,
+        text: "🚨 Emergency alert sent"
+      };
+    }
+    return msg;
+  });
 
   return (
     <View style={styles.full}>
@@ -108,50 +159,184 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
       <Text style={styles.header}>Event Code: {eventCode}</Text>
       <Text>Connected: {verifiedPeers.length} people</Text>
       
-      <ChatList messages={messages} />
+      <ChatList messages={filteredMessages} />
 
       <View style={styles.inputRow}>
         <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." />
         <Button title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} />
       </View>
+      
+      <View style={styles.panicButtonContainer}>
+        <Button title="🚨 PANIC ALERT 🚨" color="#FF3B30" onPress={handlePanic} />
+      </View>
+      
       <Button title="End Event" color="red" onPress={onExit} />
+
+      {/* Panic Modal */}
+      {showPanicModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>🚨 Send Panic Alert?</Text>
+            <Text style={styles.modalDescription}>
+              This will send an emergency alert to everyone nearby. You can add an optional message:
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Optional: Describe emergency..."
+              value={panicMessage}
+              onChangeText={setPanicMessage}
+              multiline
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Button title="Cancel" onPress={cancelPanic} color="#999" />
+              <View style={{ width: 10 }} />
+              <Button title="Send Alert" onPress={sendPanicAlert} color="#FF3B30" />
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
-  
 }
 
 // --- JOIN VIEW ---
 function JoinRoom({ onExit }: JoinRoomProps) {
+  const [accessCode, setAccessCode] = useState("");
+  const [text, setText] = useState("");
+  const [showPanicModal, setShowPanicModal] = useState(false);
+  const [panicMessage, setPanicMessage] = useState("");
+  
   const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
+  
   const { messages, sendMessage } = useChat(
     joinState === "IN_ROOM" && connectedHostId
     ? [connectedHostId]
     : []);
-  const [text, setText] = useState("");
-  const [accessCode, setAccessCode] = useState("");
+
+  // Handle panic alerts
+  React.useEffect(() => {
+    const latestMessage = messages[messages.length - 1];
+    if (latestMessage && latestMessage.text.startsWith('🚨PANIC🚨')) {
+      Alert.alert(
+        "⚠️ EMERGENCY ALERT ⚠️",
+        latestMessage.text.replace('🚨PANIC🚨', '').trim(),
+        [{ text: "OK" }]
+      );
+    }
+  }, [messages]);
+
+  const handlePanic = () => {
+    setShowPanicModal(true);
+  };
+
+  const sendPanicAlert = () => {
+    const panicText = panicMessage.trim() 
+      ? `🚨PANIC🚨 ${panicMessage.trim()}`
+      : "🚨PANIC🚨 EMERGENCY - Need immediate help!";
+    sendMessage(panicText);
+    setPanicMessage("");
+    setShowPanicModal(false);
+  };
+
+  const cancelPanic = () => {
+    setPanicMessage("");
+    setShowPanicModal(false);
+  };
+
+  // Filter out system messages for joined users too
+  const filteredMessages = messages.map(msg => {
+    if (typeof msg.text === 'object' || (typeof msg.text === 'string' && msg.text.includes('{type'))) {
+      return {
+        ...msg,
+        text: "Someone joined"
+      };
+    }
+    // Don't show panic messages in chat (they're shown as alerts)
+    if (msg.text.startsWith('🚨PANIC🚨')) {
+      return {
+        ...msg,
+        text: "🚨 Emergency alert sent"
+      };
+    }
+    return msg;
+  });
 
   if (joinState === "IN_ROOM") {
     return (
       <View style={styles.full}>
         <Text style={styles.header}>Connected to Host</Text>
-        <ChatList messages={messages} />
+        <ChatList messages={filteredMessages} />
         <View style={styles.inputRow}>
           <TextInput style={styles.input} value={text} onChangeText={setText} />
           <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
         </View>
+        
+        <View style={styles.panicButtonContainer}>
+          <Button title="🚨 PANIC ALERT 🚨" color="#FF3B30" onPress={handlePanic} />
+        </View>
+        
         <Button title="Leave" onPress={onExit} />
+
+        {/* Panic Modal */}
+        {showPanicModal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>🚨 Send Panic Alert?</Text>
+              <Text style={styles.modalDescription}>
+                This will send an emergency alert to everyone nearby. You can add an optional message:
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Optional: Describe emergency..."
+                value={panicMessage}
+                onChangeText={setPanicMessage}
+                multiline
+                autoFocus
+              />
+              <View style={styles.modalButtons}>
+                <Button title="Cancel" onPress={cancelPanic} color="#999" />
+                <View style={{ width: 10 }} />
+                <Button title="Send Alert" onPress={sendPanicAlert} color="#FF3B30" />
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     );
   }
 
   return (
     <View style={styles.full}>
+      <Text style={styles.header}>Join an Event</Text>
       <TextInput 
         style={styles.input} 
         placeholder="Enter Access Code" 
         value={accessCode} 
         onChangeText={setAccessCode} 
       />
+      
+      <Text style={styles.subheader}>Available Events:</Text>
+      <ScrollView style={styles.peerList}>
+        {discoveredPeers.map((peer) => (
+          <View key={peer.peerId} style={styles.peerItem}>
+            <Text>{peer.name || 'Unknown Event'}</Text>
+            <Button 
+              title="Join" 
+              onPress={() => {
+                if (accessCode.trim()) {
+                  // Pass both peer.id and accessCode as strings
+                  joinHost(peer.peerId, accessCode);
+                } else {
+                  Alert.alert("Error", "Please enter the access code first");
+                }
+              }} 
+            />
+          </View>
+        ))}
+      </ScrollView>
+      
+      <View style={{ height: 20 }} />
       <Button title="Back" onPress={onExit} />
     </View>
   );
@@ -176,6 +361,7 @@ const styles = StyleSheet.create({
   full: { flex: 1, padding: 40, paddingTop: 60 },
   title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
   header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  subheader: { fontSize: 16, fontWeight: '600', marginTop: 20, marginBottom: 10 },
   inputRow: { flexDirection: 'row', marginBottom: 10 },
   input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5,
   width: '100%',
@@ -189,5 +375,72 @@ const styles = StyleSheet.create({
   msg: { padding: 10, borderRadius: 10, marginVertical: 4, maxWidth: '80%' },
   myMsg: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
   theirMsg: { alignSelf: 'flex-start', backgroundColor: '#E9E9EB' },
-
+  peerList: { maxHeight: 300, marginBottom: 20 },
+  peerItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9'
+  },
+  panicButtonContainer: {
+    marginVertical: 15,
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+    borderRadius: 8,
+    overflow: 'hidden'
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
 });
