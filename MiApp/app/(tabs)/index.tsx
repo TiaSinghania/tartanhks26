@@ -171,24 +171,101 @@ function ChatList({ messages }: { messages: Message[] }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#191a22' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  full: { flex: 1, padding: 40, paddingTop: 60 },
-  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
-  header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
-  inputRow: { flexDirection: 'row', marginBottom: 10 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 2,
-  width: '100%',
-  height: 40,
-  paddingHorizontal: 10,
-  paddingVertical: 0,
-  fontSize: 16,
-  textAlignVertical: 'center', // Android fix
-  },
-  chatList: { flex: 1, marginVertical: 20 },
-  msg: { padding: 10, borderRadius: 3, marginVertical: 4, maxWidth: '80%' },
-  myMsg: { alignSelf: 'flex-end', backgroundColor: '#63868a' },
-  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#6b6e75' },
 
+const COLORS = {
+  bg: '#191A1F',          // main background (near-black, slightly warm)
+  surface: '#22242A',     // panels / inputs
+  border: '#2F3238',      // dividers & input borders
+
+  textPrimary: '#E6E7E8', // off-white, not pure white
+  textSecondary: '#A0A4AA',
+
+  accent: '#8FAEA3',      // muted green-gray (comms / active state)
+  accentStrong: '#AFC9BF',
+
+  myMsg: '#2E3F3C',       // dark, grounded, low-signal
+  theirMsg: '#2A2D33',    // neutral slate
+
+  danger: '#B55A5A',
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  full: {
+    flex: 1,
+    padding: 40,
+    paddingTop: 60,
+  },
+
+  title: {
+    fontSize: 32,
+    fontWeight: '600',
+    marginBottom: 40,
+    color: COLORS.textPrimary,
+  },
+
+  header: {
+    fontSize: 18,
+    fontWeight: '500',
+    marginBottom: 10,
+    color: COLORS.textSecondary,
+  },
+
+  inputRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+
+  input: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    color: COLORS.textPrimary,
+
+    height: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    fontSize: 16,
+
+    borderRadius: 2,
+    textAlignVertical: 'center', // Android fix
+  },
+
+  chatList: {
+    flex: 1,
+    marginVertical: 20,
+  },
+
+  msg: {
+    padding: 10,
+    borderRadius: 3,
+    marginVertical: 4,
+    maxWidth: '80%',
+  },
+
+  myMsg: {
+    alignSelf: 'flex-end',
+    backgroundColor: COLORS.myMsg,
+  },
+
+  theirMsg: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.theirMsg,
+  },
+
+  msgText: {
+    color: COLORS.textPrimary,
+    fontSize: 15,
+  },
 });
