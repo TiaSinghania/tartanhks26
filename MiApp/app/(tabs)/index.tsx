@@ -124,7 +124,9 @@ export default function MainApp() {
         />
       )}
 
-      {appState === 'joining' && <JoinRoom onExit={() => setAppState('idle')} />}
+      {appState === 'joining' && <JoinRoom onExit={() => {
+        setAppState('idle');
+      }} />}
     </View>
   );
 }
@@ -134,7 +136,7 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
   if (eventCode === null) {
     return null;
   }
-  const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
+  const { myPeerId, verifiedPeers, endEvent } = useHost(eventCode, eventName);
   const { messages, sendMessage } = useChat(verifiedPeers);
   const [text, setText] = useState("");
   const [showPanicModal, setShowPanicModal] = useState(false);
@@ -213,7 +215,7 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
         />
       </View>
       
-      <PrimaryButton title="End Event" onPress={onExit} variant="secondary"/>
+      <PrimaryButton title="End Event" onPress={() => {endEvent(); onExit();}} variant="secondary"/>
       
       <View style={styles.panicButtonContainer}>
         <PrimaryButton title="PANIC ALERT" onPress={handlePanic} variant="danger"/>
@@ -273,7 +275,7 @@ function JoinRoom({ onExit }: JoinRoomProps) {
     setAlertVisible(true);
   }
   
-  const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
+  const { discoveredPeers, joinHost, joinState, connectedHostId, leaveRoom } = useJoin("Guest");
   
   const { messages, sendMessage } = useChat(
     joinState === "IN_ROOM" && connectedHostId
@@ -342,7 +344,7 @@ function JoinRoom({ onExit }: JoinRoomProps) {
           <PrimaryButton title="PANIC ALERT" onPress={handlePanic} variant="danger"/>
         </View>
         
-        <PrimaryButton title="Leave" onPress={onExit} variant="danger"/>
+        <PrimaryButton title="Leave" onPress={() => {leaveRoom(); onExit();}} variant="danger"/>
 
         <CustomAlert
             visible={alertVisible}
@@ -350,7 +352,7 @@ function JoinRoom({ onExit }: JoinRoomProps) {
             message={alertInfo.message}
             buttons={alertInfo.buttons}
           />
-          
+
         {/* Panic Modal */}
         {showPanicModal && (
           <View style={styles.modalOverlay}>
