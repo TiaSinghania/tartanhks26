@@ -42,7 +42,8 @@
       [
         "expo-nearby-connections"
       ],
-      "expo-font"
+      "expo-font",
+      "react-native-ble-plx"
     ],
     "experiments": {
       "typedRoutes": true,

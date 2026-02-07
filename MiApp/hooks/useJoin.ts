@@ -197,12 +197,17 @@ export function useJoin(userName = "Guest User") {
             }
 
             if (device && device.rssi) {
-              scannedDevices.push(device);
-              // Check if this is our connected host
-              if (device.id === connectedHostId || device.name?.includes(connectedHostId)) {
-                if (isMounted) {
-                  setPeerRSSIMap({ [connectedHostId]: device.rssi });
-                  console.log(`Host RSSI: ${device.rssi} dBm`);
+              const knownPeerNames = discoveredPeers.map(p => p.name);
+              // 2. Check if the BLE device name matches a known peer
+              if (device.name && knownPeerNames.includes(device.name)) {
+                // Find which PeerID belongs to this name
+                const peer = discoveredPeers.find(p => p.name === device.name);
+                
+                if (peer && isMounted) {
+                  setPeerRSSIMap((prev) => ({
+                    ...prev,
+                    [peer.peerId]: device.rssi // Map the RSSI to the PeerID the app understands
+                  }));
                 }
               }
             }

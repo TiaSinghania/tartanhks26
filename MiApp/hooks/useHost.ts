@@ -169,7 +169,7 @@ export function useHost(eventCode: string, optEventName?: string | null
         bleManager.startDeviceScan(
           null,
           { allowDuplicates: true },
-          (error, device: Device | null) => {
+          (error: unknown, device: Device | null) => {
             if (error) {
               console.warn("Scan error:", error);
               bleManager.stopDeviceScan();
