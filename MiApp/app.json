@@ -38,7 +38,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-nearby-connections"
     ],
     "experiments": {
       "typedRoutes": true,
