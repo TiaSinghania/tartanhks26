@@ -5,7 +5,7 @@ import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
 import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
 // Note: You'll need to install this: npx expo install @react-native-async-storage/async-storage
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 export default function MainApp() {
@@ -13,35 +13,34 @@ export default function MainApp() {
   const [eventCode, setEventCode] = useState<string | null>(null);
   const [eventName, setEventName] = useState<string | null>(null);
 
-  const handleCreateEvent = async () => {
-    if (!eventName || eventName.trim() === "") {
-      Alert.alert("Error", "Please enter an event name.");
-      return;
-    }
+  // const handleCreateEvent = async () => {
+  //   if (!eventName || eventName.trim() === "") {
+  //     Alert.alert("Error", "Please enter an event name.");
+  //     return;
+  //   }
 
-    setAppState('creating');
+  //   setAppState('creating');
 
-    try {
-      const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+  //   try {
+  //     const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-      await AsyncStorage.multiSet([
-        ['saved_event_code', randomCode],
-        ['saved_event_name', eventName],
-      ]);
+  //     await AsyncStorage.multiSet([
+  //       ['saved_event_code', randomCode],
+  //       ['saved_event_name', eventName],
+  //     ]);
 
-      setEventCode(randomCode);
+  //     setEventCode(randomCode);
 
-      Alert.alert(
-        "Success",
-        `Event "${eventName}" created! Your code is: ${randomCode}`
-      );
-    } catch {
-      Alert.alert("Error", "Failed to save the event to your device.");
-    } finally {
-      setAppState('idle');
-    }
-  };
-
+  //     Alert.alert(
+  //       "Success",
+  //       `Event "${eventName}" created! Your code is: ${randomCode}`
+  //     );
+  //   } catch {
+  //     Alert.alert("Error", "Failed to save the event to your device.");
+  //   } finally {
+  //     setAppState('idle');
+  //   }
+  // };
 
   return (
     <View style={styles.container}>
@@ -57,7 +56,7 @@ export default function MainApp() {
             />
           <Button 
             title={"Create an Event"} 
-            onPress={handleCreateEvent} 
+            // onPress={handleCreateEvent} 
           />
 
           <View style={{ height: 20 }} />
@@ -95,24 +94,25 @@ export default function MainApp() {
 
 // --- HOST VIEW ---
 function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
-  if (eventCode === null) {
-    return null;
-  }
-  const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
-  const { messages, sendMessage } = useChat(verifiedPeers);
-  const [text, setText] = useState("");
+  // return null;
+  // if (eventCode === null) {
+  //   return null;
+  // }
+  // const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
+  // const { messages, sendMessage } = useChat(verifiedPeers);
+  // const [text, setText] = useState("");
 
   return (
     <View style={styles.full}>
       <Text style={styles.header}>Hosting: {eventName}</Text>
       <Text style={styles.header}>Event Code: {eventCode}</Text>
-      <Text>Connected: {verifiedPeers.length} people</Text>
+      {/* <Text>Connected: {verifiedPeers.length} people</Text> */}
       
-      <ChatList messages={messages} />
+      {/* <ChatList messages={messages} /> */}
 
       <View style={styles.inputRow}>
-        <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." />
-        <Button title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} />
+        {/* <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." /> */}
+        {/* <Button title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} /> */}
       </View>
       <Button title="End Event" color="red" onPress={onExit} />
     </View>
@@ -122,35 +122,36 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
 
 // --- JOIN VIEW ---
 function JoinRoom({ onExit }: JoinRoomProps) {
-  const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
-  const { messages, sendMessage } = useChat(
-    joinState === "IN_ROOM" && connectedHostId
-    ? [connectedHostId]
-    : []);
-  const [text, setText] = useState("");
-  const [accessCode, setAccessCode] = useState("");
+  // return null;
+//   const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
+//   const { messages, sendMessage } = useChat(
+//     joinState === "IN_ROOM" && connectedHostId
+//     ? [connectedHostId]
+//     : []);
+//   const [text, setText] = useState("");
+//   const [accessCode, setAccessCode] = useState("");
 
-  if (joinState === "IN_ROOM") {
-    return (
-      <View style={styles.full}>
-        <Text style={styles.header}>Connected to Host</Text>
-        <ChatList messages={messages} />
-        <View style={styles.inputRow}>
-          <TextInput style={styles.input} value={text} onChangeText={setText} />
-          <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
-        </View>
-        <Button title="Leave" onPress={onExit} />
-      </View>
-    );
-  }
+//   if (joinState === "IN_ROOM") {
+//     return (
+//       <View style={styles.full}>
+//         <Text style={styles.header}>Connected to Host</Text>
+//         <ChatList messages={messages} />
+//         <View style={styles.inputRow}>
+//           <TextInput style={styles.input} value={text} onChangeText={setText} />
+//           <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
+//         </View>
+//         <Button title="Leave" onPress={onExit} />
+//       </View>
+//     );
+//   }
 
   return (
     <View style={styles.full}>
       <TextInput 
         style={styles.input} 
         placeholder="Enter Access Code" 
-        value={accessCode} 
-        onChangeText={setAccessCode} 
+        // value={accessCode} 
+        // onChangeText={setAccessCode} 
       />
       <Button title="Back" onPress={onExit} />
     </View>
@@ -171,13 +172,13 @@ function ChatList({ messages }: { messages: Message[] }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#191a22' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   full: { flex: 1, padding: 40, paddingTop: 60 },
   title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
   header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   inputRow: { flexDirection: 'row', marginBottom: 10 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5,
+  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 2,
   width: '100%',
   height: 40,
   paddingHorizontal: 10,
@@ -186,8 +187,8 @@ const styles = StyleSheet.create({
   textAlignVertical: 'center', // Android fix
   },
   chatList: { flex: 1, marginVertical: 20 },
-  msg: { padding: 10, borderRadius: 10, marginVertical: 4, maxWidth: '80%' },
-  myMsg: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
-  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#E9E9EB' },
+  msg: { padding: 10, borderRadius: 3, marginVertical: 4, maxWidth: '80%' },
+  myMsg: { alignSelf: 'flex-end', backgroundColor: '#63868a' },
+  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#6b6e75' },
 
 });
