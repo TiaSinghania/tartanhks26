@@ -9,7 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourname.miapp",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "We need local network access to find nearby devices for messaging",
+        "NSBonjourServices": ["_bt-messenger._tcp"],
+        "NSBluetoothAlwaysUsageDescription": "We need Bluetooth to communicate with nearby devices",
+        "NSBluetoothPeripheralUsageDescription": "We need Bluetooth to communicate with nearby devices"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,6 +25,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "package": "com.yourname.miapp",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -37,6 +45,19 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-nearby-connections",
+        {
+          "bonjourServicesName": "bt-messenger",
+          "localNetworkUsagePermissionText": "We need local network access to find nearby devices for messaging"
+        }
+      ],
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": ["Bluetooth"]
         }
       ]
     ],
