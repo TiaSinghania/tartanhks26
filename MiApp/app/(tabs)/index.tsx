@@ -71,7 +71,7 @@ export default function MainApp() {
     <View style={styles.container}>
       {appState === 'idle' && (
         <View style={styles.center}>
-          <Text style={styles.title}>coolest name ever</Text>
+          <Text style={styles.title}>peaceably</Text>
           
           <TextInput
               style={styles.input}
@@ -143,10 +143,10 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
   // Handle panic alerts
   React.useEffect(() => {
     const latestMessage = messages[messages.length - 1];
-    if (latestMessage && latestMessage.text.startsWith('🚨PANIC🚨')) {
+    if (latestMessage && latestMessage.text.startsWith('PANIC')) {
       Alert.alert(
-        "⚠️ EMERGENCY ALERT ⚠️",
-        latestMessage.text.replace('🚨PANIC🚨', '').trim(),
+        "EMERGENCY ALERT",
+        latestMessage.text.replace('PANIC', '').trim(),
         [{ text: "OK" }]
       );
     }
@@ -158,8 +158,8 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
 
   const sendPanicAlert = () => {
     const panicText = panicMessage.trim() 
-      ? `🚨PANIC🚨 ${panicMessage.trim()}`
-      : "🚨PANIC🚨 EMERGENCY - Need immediate help!";
+      ? `PANIC ${panicMessage.trim()}`
+      : "PANIC EMERGENCY - Need immediate help!";
     sendMessage(panicText);
     setPanicMessage("");
     setShowPanicModal(false);
@@ -180,10 +180,10 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
       };
     }
     // Don't show panic messages in chat (they're shown as alerts)
-    if (msg.text.startsWith('🚨PANIC🚨')) {
+    if (msg.text.startsWith('PANIC')) {
       return {
         ...msg,
-        text: "🚨 Emergency alert sent"
+        text: "Emergency alert sent"
       };
     }
     return msg;
@@ -265,10 +265,10 @@ function JoinRoom({ onExit }: JoinRoomProps) {
   // Handle panic alerts
   React.useEffect(() => {
     const latestMessage = messages[messages.length - 1];
-    if (latestMessage && latestMessage.text.startsWith('🚨PANIC🚨')) {
+    if (latestMessage && latestMessage.text.startsWith('PANIC')) {
       Alert.alert(
-        "⚠️ EMERGENCY ALERT ⚠️",
-        latestMessage.text.replace('🚨PANIC🚨', '').trim(),
+        "EMERGENCY ALERT",
+        latestMessage.text.replace('PANIC', '').trim(),
         [{ text: "OK" }]
       );
     }
@@ -280,8 +280,8 @@ function JoinRoom({ onExit }: JoinRoomProps) {
 
   const sendPanicAlert = () => {
     const panicText = panicMessage.trim() 
-      ? `🚨PANIC🚨 ${panicMessage.trim()}`
-      : "🚨PANIC🚨 EMERGENCY - Need immediate help!";
+      ? `PANIC ${panicMessage.trim()}`
+      : "PANIC EMERGENCY - Need immediate help!";
     sendMessage(panicText);
     setPanicMessage("");
     setShowPanicModal(false);
@@ -301,10 +301,10 @@ function JoinRoom({ onExit }: JoinRoomProps) {
       };
     }
     // Don't show panic messages in chat (they're shown as alerts)
-    if (msg.text.startsWith('🚨PANIC🚨')) {
+    if (msg.text.startsWith('PANIC')) {
       return {
         ...msg,
-        text: "🚨 Emergency alert sent"
+        text: "Emergency alert sent"
       };
     }
     return msg;
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
 
   // --- Text ---
   title: {
-    fontFamily: FONT_FAMILY?.sansMedium,
+    fontFamily: FONT_FAMILY?.mono,
     fontSize: 32,
     fontWeight: '600',
     marginBottom: 40,
