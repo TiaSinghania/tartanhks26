@@ -18,7 +18,15 @@ export interface NearbyData {
 }
 
 // Define Props for your components
-export interface RoomProps {
+export interface HostRoomProps {
   eventCode: string | null;
+  eventName: string | null;
   onExit: () => void;
 }
+
+
+// Define Props for your components
+export interface JoinRoomProps {
+  onExit: () => void;
+}
+

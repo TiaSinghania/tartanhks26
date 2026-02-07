@@ -3,33 +3,44 @@ import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert} from 'rea
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
-import { Peer, Message, RoomProps } from '../../constants/types';
+import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
 // Note: You'll need to install this: npx expo install @react-native-async-storage/async-storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MainApp() {
   const [appState, setAppState] = useState('idle'); // 'idle', 'hosting', 'joining', 'creating'
   const [eventCode, setEventCode] = useState<string | null>(null);
+  const [eventName, setEventName] = useState<string | null>(null);
 
-  // The logic to generate the code and save it locally
   const handleCreateEvent = async () => {
+    if (!eventName || eventName.trim() === "") {
+      Alert.alert("Error", "Please enter an event name.");
+      return;
+    }
+
     setAppState('creating');
 
     try {
-      // 1. Generate 6-digit code
       const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-      // 2. Save to device storage
-      await AsyncStorage.setItem('saved_event_code', randomCode);
+      await AsyncStorage.multiSet([
+        ['saved_event_code', randomCode],
+        ['saved_event_name', eventName],
+      ]);
+
       setEventCode(randomCode);
 
-      Alert.alert("Success", `Event created locally! Your code is: ${randomCode}`);
-    } catch (error) {
+      Alert.alert(
+        "Success",
+        `Event "${eventName}" created! Your code is: ${randomCode}`
+      );
+    } catch {
       Alert.alert("Error", "Failed to save the event to your device.");
     } finally {
       setAppState('idle');
     }
   };
+
 
   return (
     <View style={styles.container}>
@@ -37,7 +48,12 @@ export default function MainApp() {
         <View style={styles.center}>
           <Text style={styles.title}>coolest name ever</Text>
           
-          {/* Use the new function here */}
+          <TextInput
+              style={styles.input}
+              placeholder="Enter Event Name"
+              value={eventName ?? ""}
+              onChangeText={setEventName}
+            />
           <Button 
             title={"Create an Event"} 
             onPress={handleCreateEvent} 
@@ -59,25 +75,29 @@ export default function MainApp() {
         </View>
       )}
 
-      {appState === 'hosting' && <HostRoom 
-        eventCode={eventCode}
-        onExit={() => {
-          setEventCode(null);
-          setAppState('idle');
-        }
-        } 
-       />}
-      {appState === 'joining' && <JoinRoom eventCode={null} onExit={() => setAppState('idle')} />}
+      {appState === 'hosting' && (
+        <HostRoom
+          eventCode={eventCode}
+          eventName={eventName}
+          onExit={() => {
+            setEventCode(null);
+            setEventName(null);
+            setAppState('idle');
+          }}
+        />
+      )}
+
+      {appState === 'joining' && <JoinRoom onExit={() => setAppState('idle')} />}
     </View>
   );
 }
 
 // --- HOST VIEW ---
-function HostRoom({ eventCode, onExit }: RoomProps) {
+function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
   if (eventCode === null) {
     return null;
   }
-  const { myPeerId, verifiedPeers } = useHost(eventCode, "My Room");
+  const { myPeerId, verifiedPeers } = useHost(eventCode, eventName);
   const { messages, sendMessage } = useChat(verifiedPeers);
   const [text, setText] = useState("");
 
@@ -99,7 +119,7 @@ function HostRoom({ eventCode, onExit }: RoomProps) {
 }
 
 // --- JOIN VIEW ---
-function JoinRoom({ eventCode, onExit }: RoomProps) {
+function JoinRoom({ onExit }: JoinRoomProps) {
   const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
   const { messages, sendMessage } = useChat(
     joinState === "IN_ROOM" && connectedHostId

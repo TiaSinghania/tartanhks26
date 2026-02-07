@@ -13,7 +13,9 @@ type AppMessage =
   | { type: "JOIN_ACCEPTED" }
   | { type: "JOIN_REJECTED"; reason: string };
 
-export function useHost(eventCode: string, deviceName = "My Host Device") {
+export function useHost(eventCode: string, optEventName?: string | null
+) {
+  const eventName = optEventName ?? "My Host Device";
   const [myPeerId, setMyPeerId] = useState<string | null>(null);
   const [peers, setPeers] = useState<Record<string, HostPeer>>({});
   const [isAdvertising, setIsAdvertising] = useState(false);
@@ -22,7 +24,7 @@ export function useHost(eventCode: string, deviceName = "My Host Device") {
      1. Advertising lifecycle
   ---------------------------------------- */
   useEffect(() => {
-    NearbyConnections.startAdvertise(deviceName)
+    NearbyConnections.startAdvertise(eventName)
       .then((peerId: string) => {
         setMyPeerId(peerId);
         setIsAdvertising(true);
@@ -36,7 +38,7 @@ export function useHost(eventCode: string, deviceName = "My Host Device") {
       NearbyConnections.stopAdvertise();
       setIsAdvertising(false);
     };
-  }, [deviceName]);
+  }, [eventName]);
 
   /* ----------------------------------------
      2. Connection + protocol listeners
