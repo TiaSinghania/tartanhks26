@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert} from 'react-native';
+import { COLORS, BUTTON, BUTTON_TEXT, INPUT, INPUT_TEXT, CHAT, FONT_FAMILY } from '@/constants/theme';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
 import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
+import { PrimaryButton } from '@/components/PrimaryButton';
 // Note: You'll need to install this: npx expo install @react-native-async-storage/async-storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // --- BLE CONFIG ---
@@ -45,7 +47,6 @@ export default function MainApp() {
     }
   };
 
-
   return (
     <View style={styles.container}>
       {appState === 'idle' && (
@@ -58,13 +59,15 @@ export default function MainApp() {
               value={eventName ?? ""}
               onChangeText={setEventName}
             />
-          <Button 
+          <View style={{ height: 20 }} />
+
+          <PrimaryButton 
             title={"Create an Event"} 
             onPress={handleCreateEvent} 
           />
 
-          <View style={{ height: 20 }} />
-          <Button
+          <View style={{ height: 40 }} />
+          <PrimaryButton
             title="Start an Event (Host)"
             onPress={() => {
               if (eventCode !== null) {
@@ -75,7 +78,7 @@ export default function MainApp() {
             }}
           />
           <View style={{ height: 20 }} />
-          <Button title="Join an Event" onPress={() => setAppState('joining')} />
+          <PrimaryButton title="Join an Event" onPress={() => setAppState('joining')} />
         </View>
       )}
 
@@ -161,9 +164,9 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
 
       <View style={styles.inputRow}>
         <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." />
-        <Button title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} />
+        <PrimaryButton title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} />
       </View>
-      <Button title="End Event" color="red" onPress={onExit} />
+      <PrimaryButton title="End Event" onPress={onExit} />
     </View>
   );
   
@@ -194,9 +197,9 @@ function JoinRoom({ onExit }: JoinRoomProps) {
         <ChatList messages={messages} />
         <View style={styles.inputRow}>
           <TextInput style={styles.input} value={text} onChangeText={setText} />
-          <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
+          <PrimaryButton title="Send" onPress={() => { sendMessage(text); setText(""); }} />
         </View>
-        <Button title="Leave" onPress={onExit} />
+        <PrimaryButton title="Leave" onPress={onExit} />
       </View>
     );
   }
@@ -265,18 +268,20 @@ function JoinRoom({ onExit }: JoinRoomProps) {
         value={accessCode} 
         onChangeText={setAccessCode} 
       />
-      <Button title="Back" onPress={onExit} />
+      <PrimaryButton title="Back" onPress={onExit} />
     </View>
   );
 }
 
-// --- SHARED CHAT UI ---
 function ChatList({ messages }: { messages: Message[] }) {
   return (
     <ScrollView style={styles.chatList}>
-      {messages.map((m: Message) => (
-        <View key={m.id} style={[styles.msg, m.isMe ? styles.myMsg : styles.theirMsg]}>
-          <Text style={m.isMe ? { color: 'white' } : {}}>{m.text}</Text>
+      {messages.map((m) => (
+        <View
+          key={m.id}
+          style={[styles.msg, m.isMe ? styles.myMsg : styles.theirMsg]}
+        >
+          <Text style={styles.msgText}>{m.text}</Text>
         </View>
       ))}
     </ScrollView>
@@ -298,24 +303,98 @@ function estimateDistance(rssi: number) {
   else return 0.89976 * Math.pow(ratio, 7.7095) + 0.111;
 }
 
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  full: { flex: 1, padding: 40, paddingTop: 60 },
-  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
-  header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
-  inputRow: { flexDirection: 'row', marginBottom: 10 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5,
-  width: '100%',
-  height: 40,
-  paddingHorizontal: 10,
-  paddingVertical: 0,
-  fontSize: 16,
-  textAlignVertical: 'center', // Android fix
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
   },
-  chatList: { flex: 1, marginVertical: 20 },
-  msg: { padding: 10, borderRadius: 10, marginVertical: 4, maxWidth: '80%' },
-  myMsg: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
-  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#E9E9EB' },
+
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  full: {
+    flex: 1,
+    padding: 40,
+    paddingTop: 60,
+  },
+
+  title: {
+    fontSize: 32,
+    fontWeight: '600',
+    marginBottom: 40,
+    color: COLORS.textPrimary,
+  },
+
+  header: {
+    fontSize: 18,
+    fontWeight: '500',
+    marginBottom: 10,
+    color: COLORS.textSecondary,
+  },
+
+  inputRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+    buttonPrimary: {
+    height: BUTTON.height,
+    backgroundColor: BUTTON.primary.bg,
+    borderRadius: BUTTON.radius,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  buttonPrimaryText: {
+    ...BUTTON_TEXT,
+    color: BUTTON.primary.text,
+  },
+
+
+  input: {
+    height: INPUT.height,
+    backgroundColor: INPUT.bg,
+    borderWidth: 1,
+    borderColor: INPUT.border,
+    borderRadius: INPUT.radius,
+
+    paddingHorizontal: 10,
+
+    color: INPUT.text,
+    ...INPUT_TEXT,
+  },
+
+
+  chatList: {
+    flex: 1,
+    paddingVertical: 12,
+  },
+
+  msg: {
+    padding: 10,
+    borderRadius: CHAT.radius,
+    marginVertical: 4,
+    maxWidth: '82%',
+  },
+
+  myMsg: {
+    alignSelf: 'flex-end',
+    backgroundColor: CHAT.mineBg,
+  },
+
+  theirMsg: {
+    alignSelf: 'flex-start',
+    backgroundColor: CHAT.theirsBg,
+  },
+
+  msgText: {
+    fontFamily: FONT_FAMILY?.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    color: CHAT.text,
+  },
 
 });
