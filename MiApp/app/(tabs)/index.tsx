@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert} from 'react-native';
+import { COLORS } from '@/constants/theme';
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
@@ -171,23 +172,6 @@ function ChatList({ messages }: { messages: Message[] }) {
   );
 }
 
-
-const COLORS = {
-  bg: '#191A1F',          // main background (near-black, slightly warm)
-  surface: '#22242A',     // panels / inputs
-  border: '#2F3238',      // dividers & input borders
-
-  textPrimary: '#E6E7E8', // off-white, not pure white
-  textSecondary: '#A0A4AA',
-
-  accent: '#8FAEA3',      // muted green-gray (comms / active state)
-  accentStrong: '#AFC9BF',
-
-  myMsg: '#2E3F3C',       // dark, grounded, low-signal
-  theirMsg: '#2A2D33',    // neutral slate
-
-  danger: '#B55A5A',
-};
 
 const styles = StyleSheet.create({
   container: {

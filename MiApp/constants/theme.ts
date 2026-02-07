@@ -5,17 +5,21 @@
 
 import { Platform } from 'react-native';
 
-const tintColorDark = '#63868a';
+export const COLORS = {
+  bg: '#191A1F',          // main background (near-black, slightly warm)
+  surface: '#22242A',     // panels / inputs
+  border: '#2F3238',      // dividers & input borders
 
-export const Colors = {
-  dark: {
-    text: '#ECEDEE',
-    background: '#191a22',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+  textPrimary: '#E6E7E8', // off-white, not pure white
+  textSecondary: '#A0A4AA',
+
+  accent: '#8FAEA3',      // muted green-gray (comms / active state)
+  accentStrong: '#AFC9BF',
+
+  myMsg: '#2E3F3C',       // dark, grounded, low-signal
+  theirMsg: '#2A2D33',    // neutral slate
+
+  danger: '#B55A5A',
 };
 
 export const Fonts = Platform.select({
