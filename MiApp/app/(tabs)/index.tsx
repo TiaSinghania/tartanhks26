@@ -109,13 +109,24 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
     <View style={styles.full}>
       <Text style={styles.header}>Hosting: {eventName}</Text>
       <Text style={styles.header}>Event Code: {eventCode}</Text>
-      <Text>Connected: {verifiedPeers.length} people</Text>
+      <Text style={styles.text}>Connected: {verifiedPeers.length} people</Text>
       
       <ChatList messages={messages} />
 
+
       <View style={styles.inputRow}>
-        <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." />
-        <PrimaryButton title="Send Blast" onPress={() => { sendMessage(text); setText(""); }} />
+        <TextInput 
+          style={[styles.input]} // flex: 1 makes it take up remaining space
+          value={text} 
+          onChangeText={setText} 
+          placeholder="Broadcast to group..." 
+          placeholderTextColor={COLORS.textSecondary}
+        />
+        <View style={{ width: 20 }} /> {/* This creates your 20px right margin */}
+        <PrimaryButton 
+          title="Send Blast" 
+          onPress={() => { sendMessage(text); setText(""); }} 
+        />
       </View>
       <PrimaryButton title="End Event" onPress={onExit} />
     </View>
@@ -206,6 +217,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 10,
     color: COLORS.textSecondary,
+  },
+
+  text: {
+    fontSize: 14,
+    fontWeight: '400',
+    marginBottom: 10,
+    color: COLORS.textPrimary,
   },
 
   inputRow: {

@@ -41,7 +41,8 @@
       ],
       [
         "expo-nearby-connections"
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
