@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert} from 'react-native';
+import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert, Switch} from 'react-native';
 import { COLORS, BUTTON, BUTTON_TEXT, INPUT, INPUT_TEXT, CHAT, FONT_FAMILY } from '@/constants/theme';
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
+import { useLocationSharing } from '../../hooks/useLocationSharing';
+import { CrowdMapView } from '../../components/CrowdMapView';
 import { Peer, Message, HostRoomProps, JoinRoomProps } from '../../constants/types';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { CustomAlert } from '@/components/CustomAlert';
@@ -139,6 +141,34 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
   const [text, setText] = useState("");
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [panicMessage, setPanicMessage] = useState("");
+  const [showCrowdMap, setShowCrowdMap] = useState(false);
+  
+  // Location sharing
+  const {
+    isParticipating,
+    isSharingGPS,
+    userPositions,
+    startParticipating,
+    stopParticipating,
+    startSharingGPS,
+    stopSharingGPS,
+  } = useLocationSharing(myPeerId || 'host', eventName || 'Host', verifiedPeers);
+
+  const handleParticipatingToggle = (value: boolean) => {
+    if (value) {
+      startParticipating();
+    } else {
+      stopParticipating();
+    }
+  };
+
+  const handleGPSToggle = async (value: boolean) => {
+    if (value) {
+      await startSharingGPS();
+    } else {
+      stopSharingGPS();
+    }
+  };
 
   // Handle panic alerts
   React.useEffect(() => {
@@ -195,6 +225,38 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
       <Text style={styles.header}>Event Code: {eventCode}</Text>
       <Text style={styles.text}>Connected: {verifiedPeers.length} people</Text>
       
+      {/* Location Sharing Section */}
+      <View style={styles.locationSection}>
+        <View style={styles.locationRow}>
+          <Text style={styles.locationLabel}>Show me on map</Text>
+          <Switch
+            value={isParticipating}
+            onValueChange={handleParticipatingToggle}
+            trackColor={{ false: '#ccc', true: '#4CAF50' }}
+          />
+        </View>
+        {isParticipating && (
+          <View style={styles.locationRow}>
+            <Text style={styles.locationLabel}>Share my GPS (help others locate)</Text>
+            <Switch
+              value={isSharingGPS}
+              onValueChange={handleGPSToggle}
+              trackColor={{ false: '#ccc', true: '#2196F3' }}
+            />
+          </View>
+        )}
+        <Button
+          title={userPositions.size > 0 ? `📍 View Crowd Map (${userPositions.size} users)` : '📍 View Crowd Map'}
+          onPress={() => setShowCrowdMap(true)}
+        />
+        {isParticipating && !isSharingGPS && (
+          <Text style={styles.locationHint}>Your position will be estimated based on nearby GPS users</Text>
+        )}
+        {isSharingGPS && (
+          <Text style={styles.locationHint}>You're helping others locate themselves! 📍</Text>
+        )}
+      </View>
+      
       <ChatList messages={filteredMessages} />
 
 
@@ -220,6 +282,15 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
       </View>
       
       
+
+      {/* Crowd Map Modal */}
+      <CrowdMapView
+        visible={showCrowdMap}
+        onClose={() => setShowCrowdMap(false)}
+        userPositions={userPositions}
+        myPeerId={myPeerId || 'host'}
+        eventName={eventName || undefined}
+      />
 
       {/* Panic Modal */}
       {showPanicModal && (
@@ -256,6 +327,7 @@ function JoinRoom({ onExit }: JoinRoomProps) {
   const [text, setText] = useState("");
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [panicMessage, setPanicMessage] = useState("");
+  const [showCrowdMap, setShowCrowdMap] = useState(false);
   
   const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
   
@@ -263,6 +335,34 @@ function JoinRoom({ onExit }: JoinRoomProps) {
     joinState === "IN_ROOM" && connectedHostId
     ? [connectedHostId]
     : []);
+
+  // Location sharing (only active when in room)
+  const connectedPeers = joinState === "IN_ROOM" && connectedHostId ? [connectedHostId] : [];
+  const {
+    isParticipating,
+    isSharingGPS,
+    userPositions,
+    startParticipating,
+    stopParticipating,
+    startSharingGPS,
+    stopSharingGPS,
+  } = useLocationSharing('guest', 'Guest', connectedPeers);
+
+  const handleParticipatingToggle = (value: boolean) => {
+    if (value) {
+      startParticipating();
+    } else {
+      stopParticipating();
+    }
+  };
+
+  const handleGPSToggle = async (value: boolean) => {
+    if (value) {
+      await startSharingGPS();
+    } else {
+      stopSharingGPS();
+    }
+  };
 
   // Handle panic alerts
   React.useEffect(() => {
@@ -316,6 +416,39 @@ function JoinRoom({ onExit }: JoinRoomProps) {
     return (
       <View style={styles.full}>
         <Text style={styles.header}>Connected to Host</Text>
+        
+        {/* Location Sharing Section */}
+        <View style={styles.locationSection}>
+          <View style={styles.locationRow}>
+            <Text style={styles.locationLabel}>Show me on map</Text>
+            <Switch
+              value={isParticipating}
+              onValueChange={handleParticipatingToggle}
+              trackColor={{ false: '#ccc', true: '#4CAF50' }}
+            />
+          </View>
+          {isParticipating && (
+            <View style={styles.locationRow}>
+              <Text style={styles.locationLabel}>Share my GPS (help others locate)</Text>
+              <Switch
+                value={isSharingGPS}
+                onValueChange={handleGPSToggle}
+                trackColor={{ false: '#ccc', true: '#2196F3' }}
+              />
+            </View>
+          )}
+          <Button
+            title={userPositions.size > 0 ? `📍 View Crowd Map (${userPositions.size} users)` : '📍 View Crowd Map'}
+            onPress={() => setShowCrowdMap(true)}
+          />
+          {isParticipating && !isSharingGPS && (
+            <Text style={styles.locationHint}>Your position will be estimated based on nearby GPS users</Text>
+          )}
+          {isSharingGPS && (
+            <Text style={styles.locationHint}>You're helping others locate themselves! 📍</Text>
+          )}
+        </View>
+        
         <ChatList messages={filteredMessages} />
         <View style={styles.inputRow}>
           <TextInput style={styles.input} value={text} onChangeText={setText} />
@@ -327,6 +460,14 @@ function JoinRoom({ onExit }: JoinRoomProps) {
         </View>
         
         <PrimaryButton title="Leave" onPress={onExit} variant="danger"/>
+
+        {/* Crowd Map Modal */}
+        <CrowdMapView
+          visible={showCrowdMap}
+          onClose={() => setShowCrowdMap(false)}
+          userPositions={userPositions}
+          myPeerId="guest"
+        />
 
         {/* Panic Modal */}
         {showPanicModal && (
@@ -540,8 +681,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
-
-  // --- Modal / Panic Modal ---
+  locationSection: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    padding: 12,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  locationLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+  },
+  locationHint: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 6,
+    textAlign: 'center',
+  },
   modalOverlay: {
     position: 'absolute',
     top: 0,
