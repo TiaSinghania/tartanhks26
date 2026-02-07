@@ -103,7 +103,8 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
 
   return (
     <View style={styles.full}>
-      <Text style={styles.header}>Hosting: {myPeerId}</Text>
+      <Text style={styles.header}>Hosting: {eventName}</Text>
+      <Text style={styles.header}>Event Code: {eventCode}</Text>
       <Text>Connected: {verifiedPeers.length} people</Text>
       
       <ChatList messages={messages} />
