@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as NearbyConnections from "expo-nearby-connections";
 
 type JoinState =
@@ -10,7 +10,8 @@ type JoinState =
 type AppMessage =
   | { type: "JOIN_REQUEST"; eventCode: string }
   | { type: "JOIN_ACCEPTED" }
-  | { type: "JOIN_REJECTED"; reason: string };
+  | { type: "JOIN_REJECTED"; reason: string }
+  | { type: "ROOM_CLOSED" };
 
 export function useJoin(userName = "Guest User") {
   const [myPeerId, setMyPeerId] = useState<string | null>(null);
@@ -114,7 +115,20 @@ export function useJoin(userName = "Guest User") {
           setConnectedHostId(null);
           alert(message.reason);
         }
-      });
+      // 2. Handle when Host ends the event
+        if (message.type === "ROOM_CLOSED") {
+          console.log("Host closed the room");
+          
+          // Optional: Give the user feedback
+          alert("The host has ended the event.");
+
+          // Clean up connection
+          NearbyConnections.disconnect(peerId);
+          setJoinState("IDLE");
+          setConnectedHostId(null);
+        }
+      }
+    );
 
     const onDisconnectedListener =
       NearbyConnections.onDisconnected(() => {
@@ -143,11 +157,25 @@ export function useJoin(userName = "Guest User") {
     NearbyConnections.requestConnection(hostPeerId);
   };
 
+  // 3. New Action: User manually leaves
+  const leaveRoom = useCallback(() => {
+    if (connectedHostId) {
+      console.log("User leaving room, disconnecting...");
+      NearbyConnections.disconnect(connectedHostId);
+    }
+    
+    // Reset local state immediately
+    setJoinState("IDLE");
+    setConnectedHostId(null);
+    setPendingEventCode(null);
+  }, [connectedHostId]);
+
   return {
     myPeerId,
     discoveredPeers,
     joinState,
     connectedHostId,
     joinHost,
+    leaveRoom,
   };
 }

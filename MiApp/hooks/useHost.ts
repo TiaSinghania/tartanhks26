@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as NearbyConnections from "expo-nearby-connections";
 
 type PeerStatus = "CONNECTED_UNVERIFIED" | "VERIFIED";
@@ -11,7 +11,8 @@ type HostPeer = {
 type AppMessage =
   | { type: "JOIN_REQUEST"; eventCode: string }
   | { type: "JOIN_ACCEPTED" }
-  | { type: "JOIN_REJECTED"; reason: string };
+  | { type: "JOIN_REJECTED"; reason: string }
+  | { type: "ROOM_CLOSED" };
 
 export function useHost(eventCode: string, optEventName?: string | null
 ) {
@@ -129,6 +130,35 @@ export function useHost(eventCode: string, optEventName?: string | null
   }, [eventCode]);
 
   /* ----------------------------------------
+     3. Helper: End Event (Cleanup)
+  ---------------------------------------- */
+  const endEvent = useCallback(() => {
+    console.log("Ending event: notifying peers and shutting down.");
+
+    const goodbyeMessage = JSON.stringify({ type: "ROOM_CLOSED" });
+
+    // 1. Notify all connected peers (both verified and unverified)
+    Object.keys(peers).forEach((peerId) => {
+      try {
+        NearbyConnections.sendText(peerId, goodbyeMessage);
+        // Small delay or immediate disconnect depending on reliability needs.
+        // Usually, firing disconnect immediately after send is fine in sockets,
+        // but in P2P sometimes a tiny delay ensures the message buffer flushes.
+        NearbyConnections.disconnect(peerId);
+      } catch (e) {
+        console.warn(`Failed to disconnect peer ${peerId}`, e);
+      }
+    });
+
+    // 2. Stop accepting new people
+    NearbyConnections.stopAdvertise();
+    setIsAdvertising(false);
+
+    // 3. Clear local state
+    setPeers({});
+  }, [peers]);
+
+  /* ----------------------------------------
      3. Derived data for UI
   ---------------------------------------- */
   const verifiedPeers = Object.values(peers)
@@ -139,5 +169,6 @@ export function useHost(eventCode: string, optEventName?: string | null
     myPeerId,
     isAdvertising,
     verifiedPeers,
+    endEvent,
   };
 }
