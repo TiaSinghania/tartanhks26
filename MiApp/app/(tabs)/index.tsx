@@ -213,11 +213,13 @@ function HostRoom({ eventCode, eventName, onExit }: HostRoomProps) {
         />
       </View>
       
+      <PrimaryButton title="End Event" onPress={onExit} variant="secondary"/>
+      
       <View style={styles.panicButtonContainer}>
         <PrimaryButton title="PANIC ALERT" onPress={handlePanic} variant="danger"/>
       </View>
       
-      <PrimaryButton title="End Event" onPress={onExit} variant="danger"/>
+      
 
       {/* Panic Modal */}
       {showPanicModal && (
