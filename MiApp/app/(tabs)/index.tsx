@@ -1,42 +1,90 @@
 import React, { useState } from 'react';
-import { View, Text, Button, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Button, TextInput, ScrollView, StyleSheet, Alert} from 'react-native';
 import { useHost } from '../..//hooks/useHost';
 import { useJoin } from '../../hooks/useJoin';
 import { useChat } from '../../hooks/useChat';
 import { Peer, Message, RoomProps } from '../../constants/types';
-
-
+// Note: You'll need to install this: npx expo install @react-native-async-storage/async-storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MainApp() {
-  const [appState, setAppState] = useState('idle'); // 'idle', 'hosting', 'joining'
+  const [appState, setAppState] = useState('idle'); // 'idle', 'hosting', 'joining', 'creating'
+  const [eventCode, setEventCode] = useState<string | null>(null);
+
+  // The logic to generate the code and save it locally
+  const handleCreateEvent = async () => {
+    setAppState('creating');
+
+    try {
+      // 1. Generate 6-digit code
+      const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // 2. Save to device storage
+      await AsyncStorage.setItem('saved_event_code', randomCode);
+      setEventCode(randomCode);
+
+      Alert.alert("Success", `Event created locally! Your code is: ${randomCode}`);
+    } catch (error) {
+      Alert.alert("Error", "Failed to save the event to your device.");
+    } finally {
+      setAppState('idle');
+    }
+  };
 
   return (
     <View style={styles.container}>
       {appState === 'idle' && (
         <View style={styles.center}>
-          <Text style={styles.title}>Nearby Messenger</Text>
-          <Button title="Start an Event (Host)" onPress={() => setAppState('hosting')} />
+          <Text style={styles.title}>coolest name ever</Text>
+          
+          {/* Use the new function here */}
+          <Button 
+            title={"Create an Event"} 
+            onPress={handleCreateEvent} 
+          />
+
+          <View style={{ height: 20 }} />
+          <Button
+            title="Start an Event (Host)"
+            onPress={() => {
+              if (eventCode !== null) {
+                setAppState('hosting');
+              } else {
+                Alert.alert("Error", "No event started! Try creating an event first.");
+              }
+            }}
+          />
           <View style={{ height: 20 }} />
           <Button title="Join an Event" onPress={() => setAppState('joining')} />
         </View>
       )}
 
-      {appState === 'hosting' && <HostRoom onExit={() => setAppState('idle')} />}
-      {appState === 'joining' && <JoinRoom onExit={() => setAppState('idle')} />}
+      {appState === 'hosting' && <HostRoom 
+        eventCode={eventCode}
+        onExit={() => {
+          setEventCode(null);
+          setAppState('idle');
+        }
+        } 
+       />}
+      {appState === 'joining' && <JoinRoom eventCode={null} onExit={() => setAppState('idle')} />}
     </View>
   );
 }
 
 // --- HOST VIEW ---
-function HostRoom({ onExit }: RoomProps) {
-  const { myPeerId, connectedPeers } = useHost("My Room");
-  const { messages, sendMessage } = useChat(connectedPeers);
+function HostRoom({ eventCode, onExit }: RoomProps) {
+  if (eventCode === null) {
+    return null;
+  }
+  const { myPeerId, verifiedPeers } = useHost(eventCode, "My Room");
+  const { messages, sendMessage } = useChat(verifiedPeers);
   const [text, setText] = useState("");
 
   return (
     <View style={styles.full}>
       <Text style={styles.header}>Hosting: {myPeerId}</Text>
-      <Text>Connected: {connectedPeers.length} people</Text>
+      <Text>Connected: {verifiedPeers.length} people</Text>
       
       <ChatList messages={messages} />
 
@@ -47,16 +95,20 @@ function HostRoom({ onExit }: RoomProps) {
       <Button title="End Event" color="red" onPress={onExit} />
     </View>
   );
+  
 }
 
 // --- JOIN VIEW ---
-function JoinRoom({ onExit }: RoomProps) {
-  const { discoveredPeers, joinHost, isConnected, connectedHostId } = useJoin("Guest");
-  const { messages, sendMessage } = useChat(isConnected ? [connectedHostId] : []);
+function JoinRoom({ eventCode, onExit }: RoomProps) {
+  const { discoveredPeers, joinHost, joinState, connectedHostId } = useJoin("Guest");
+  const { messages, sendMessage } = useChat(
+    joinState === "IN_ROOM" && connectedHostId
+    ? [connectedHostId]
+    : []);
   const [text, setText] = useState("");
   const [accessCode, setAccessCode] = useState("");
 
-  if (isConnected) {
+  if (joinState === "IN_ROOM") {
     return (
       <View style={styles.full}>
         <Text style={styles.header}>Connected to Host</Text>
@@ -83,7 +135,7 @@ function JoinRoom({ onExit }: RoomProps) {
         <Button 
           key={peer.peerId} 
           title={`Join ${peer.peerName}`} 
-          onPress={() => joinHost(peer.peerId)} 
+          onPress={() => joinHost(peer.peerId, accessCode)} 
         />
       ))}
       <Button title="Back" onPress={onExit} />

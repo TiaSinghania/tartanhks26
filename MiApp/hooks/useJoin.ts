@@ -1,15 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import * as NearbyConnections from "expo-nearby-connections";
-import { Peer, Message } from '../constants/types';
 
+type JoinState =
+  | "IDLE"
+  | "CONNECTING"
+  | "AWAITING_AUTH"
+  | "IN_ROOM";
+
+type AppMessage =
+  | { type: "JOIN_REQUEST"; eventCode: string }
+  | { type: "JOIN_ACCEPTED" }
+  | { type: "JOIN_REJECTED"; reason: string };
 
 export function useJoin(userName = "Guest User") {
-  const [myPeerId, setMyPeerId] = useState<any|null>(null);
+  const [myPeerId, setMyPeerId] = useState<string | null>(null);
   const [discoveredPeers, setDiscoveredPeers] = useState<any[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectedHostId, setConnectedHostId] = useState<any|null>(null);
+  const [joinState, setJoinState] = useState<JoinState>("IDLE");
+  const [connectedHostId, setConnectedHostId] = useState<string | null>(null);
+  const [pendingEventCode, setPendingEventCode] = useState<string | null>(null);
 
-  // 1. Start Discovery on Mount
+  /* ----------------------------------------
+     1. Discovery lifecycle
+  ---------------------------------------- */
   useEffect(() => {
     NearbyConnections.startDiscovery(userName)
       .then((peerId: string) => {
@@ -25,61 +37,117 @@ export function useJoin(userName = "Guest User") {
     };
   }, [userName]);
 
-  // 2. Manage Peer Listeners (Found/Lost)
+  /* ----------------------------------------
+     2. Peer discovery listeners
+  ---------------------------------------- */
   useEffect(() => {
-    const onPeerFoundListener = NearbyConnections.onPeerFound((data: NearbyConnections.PeerFound) => {
-      console.log("Found a host:", data.peerId);
-      setDiscoveredPeers((prev) => {
-        // Prevent duplicates if the same peer is found twice
-        if (prev.find(p => p.peerId === data.peerId)) return prev;
-        return [...prev, data];
-      });
-    });
+    const onPeerFoundListener =
+      NearbyConnections.onPeerFound((data) => {
+        console.log("Found host:", data.peerId);
 
-    const onPeerLostListener = NearbyConnections.onPeerLost((data: NearbyConnections.PeerLost) => {
-      console.log("Lost contact with:", data.peerId);
-      setDiscoveredPeers((prev) => 
-        prev.filter((peer) => peer.peerId !== data.peerId)
-      );
-    });
+        setDiscoveredPeers((prev) => {
+          if (prev.find((p) => p.peerId === data.peerId)) return prev;
+          return [...prev, data];
+        });
+      });
+
+    const onPeerLostListener =
+      NearbyConnections.onPeerLost((data) => {
+        console.log("Lost host:", data.peerId);
+
+        setDiscoveredPeers((prev) =>
+          prev.filter((peer) => peer.peerId !== data.peerId)
+        );
+      });
 
     return () => {
       onPeerFoundListener();
       onPeerLostListener();
     };
-  }, []); // Empty array ensures this only runs once
+  }, []);
 
-  // 3. Manage Connection Success/Failure
+  /* ----------------------------------------
+     3. Connection + protocol listeners
+  ---------------------------------------- */
   useEffect(() => {
-    const onConnectedListener = NearbyConnections.onConnected((data: NearbyConnections.Connected) => {
-      console.log("Successfully connected to host!");
-      setIsConnected(true);
-      setConnectedHostId(data.peerId);
-    });
+    // Transport-level connection
+    const onConnectedListener =
+      NearbyConnections.onConnected(({ peerId }) => {
+        console.log("Transport connected to host:", peerId);
 
-    const onDisconnectedListener = NearbyConnections.onDisconnected((data: NearbyConnections.Disconnected) => {
-      console.log("Disconnected from host.");
-      setIsConnected(false);
-      setConnectedHostId(null);
-    });
+        setConnectedHostId(peerId);
+        setJoinState("AWAITING_AUTH");
+
+        if (pendingEventCode) {
+          NearbyConnections.sendText(
+            peerId,
+            JSON.stringify({
+              type: "JOIN_REQUEST",
+              eventCode: pendingEventCode,
+            } satisfies AppMessage)
+          );
+        }
+      });
+
+    // App-level messages
+    const onTextListener =
+      NearbyConnections.onTextReceived(({ peerId, text }) => {
+        let message: AppMessage;
+
+        try {
+          message = JSON.parse(text) as AppMessage;
+        } catch {
+          console.warn("Invalid payload from host");
+          return;
+        }
+
+        if (message.type === "JOIN_ACCEPTED") {
+          console.log("Join approved by host");
+          setJoinState("IN_ROOM");
+        }
+
+        if (message.type === "JOIN_REJECTED") {
+          console.log("Join rejected:", message.reason);
+
+          NearbyConnections.disconnect(peerId);
+          setJoinState("IDLE");
+          setConnectedHostId(null);
+          alert(message.reason);
+        }
+      });
+
+    const onDisconnectedListener =
+      NearbyConnections.onDisconnected(() => {
+        console.log("Disconnected from host");
+
+        setJoinState("IDLE");
+        setConnectedHostId(null);
+      });
 
     return () => {
       onConnectedListener();
+      onTextListener();
       onDisconnectedListener();
     };
-  }, []);
+  }, [pendingEventCode]);
 
-  // 4. Action: Request a connection
-  const joinHost = (selectedPeerId: string) => {
-    console.log("Requesting join to:", selectedPeerId);
-    NearbyConnections.requestConnection(selectedPeerId);
+  /* ----------------------------------------
+     4. Action: request to join a host
+  ---------------------------------------- */
+  const joinHost = (hostPeerId: string, eventCode: string) => {
+    console.log("Requesting connection to:", hostPeerId);
+
+    setPendingEventCode(eventCode);
+    setJoinState("CONNECTING");
+
+    NearbyConnections.requestConnection(hostPeerId);
   };
 
   return {
     myPeerId,
     discoveredPeers,
-    isConnected,
+    joinState,
     connectedHostId,
-    joinHost // Expose this function to be used on a button press
+    joinHost,
   };
 }

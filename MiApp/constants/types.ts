@@ -19,5 +19,6 @@ export interface NearbyData {
 
 // Define Props for your components
 export interface RoomProps {
+  eventCode: string | null;
   onExit: () => void;
 }
