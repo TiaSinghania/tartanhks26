@@ -460,16 +460,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 10,
   },
+
   input: {
-    flex: 1,
     height: INPUT.height,
     backgroundColor: INPUT.bg,
     borderWidth: 1,
     borderColor: INPUT.border,
     borderRadius: INPUT.radius,
+
     paddingHorizontal: 10,
-    paddingVertical: 0,
-    textAlignVertical: 'center', // Android fix
+
     color: INPUT.text,
     ...INPUT_TEXT,
   },
