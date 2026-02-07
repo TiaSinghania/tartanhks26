@@ -1,98 +1,119 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Button, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { useHost } from '../..//hooks/useHost';
+import { useJoin } from '../../hooks/useJoin';
+import { useChat } from '../../hooks/useChat';
+import { Peer, Message, RoomProps } from '../../constants/types';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
 
-export default function HomeScreen() {
+
+export default function MainApp() {
+  const [appState, setAppState] = useState('idle'); // 'idle', 'hosting', 'joining'
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      {appState === 'idle' && (
+        <View style={styles.center}>
+          <Text style={styles.title}>Nearby Messenger</Text>
+          <Button title="Start an Event (Host)" onPress={() => setAppState('hosting')} />
+          <View style={{ height: 20 }} />
+          <Button title="Join an Event" onPress={() => setAppState('joining')} />
+        </View>
+      )}
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {appState === 'hosting' && <HostRoom onExit={() => setAppState('idle')} />}
+      {appState === 'joining' && <JoinRoom onExit={() => setAppState('idle')} />}
+    </View>
+  );
+}
+
+// --- HOST VIEW ---
+function HostRoom({ onExit }: RoomProps) {
+  const { myPeerId, connectedPeers } = useHost("My Room");
+  const { messages, sendMessage } = useChat(connectedPeers);
+  const [text, setText] = useState("");
+
+  return (
+    <View style={styles.full}>
+      <Text style={styles.header}>Hosting: {myPeerId}</Text>
+      <Text>Connected: {connectedPeers.length} people</Text>
+      
+      <ChatList messages={messages} />
+
+      <View style={styles.inputRow}>
+        <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Broadcast to group..." />
+        <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
+      </View>
+      <Button title="End Event" color="red" onPress={onExit} />
+    </View>
+  );
+}
+
+// --- JOIN VIEW ---
+function JoinRoom({ onExit }: RoomProps) {
+  const { discoveredPeers, joinHost, isConnected, connectedHostId } = useJoin("Guest");
+  const { messages, sendMessage } = useChat(isConnected ? [connectedHostId] : []);
+  const [text, setText] = useState("");
+  const [accessCode, setAccessCode] = useState("");
+
+  if (isConnected) {
+    return (
+      <View style={styles.full}>
+        <Text style={styles.header}>Connected to Host</Text>
+        <ChatList messages={messages} />
+        <View style={styles.inputRow}>
+          <TextInput style={styles.input} value={text} onChangeText={setText} />
+          <Button title="Send" onPress={() => { sendMessage(text); setText(""); }} />
+        </View>
+        <Button title="Leave" onPress={onExit} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.full}>
+      <Text style={styles.header}>Nearby Events</Text>
+      <TextInput 
+        style={styles.input} 
+        placeholder="Enter Access Code" 
+        value={accessCode} 
+        onChangeText={setAccessCode} 
+      />
+      {discoveredPeers.map(peer => (
+        <Button 
+          key={peer.peerId} 
+          title={`Join ${peer.peerName}`} 
+          onPress={() => joinHost(peer.peerId)} 
+        />
+      ))}
+      <Button title="Back" onPress={onExit} />
+    </View>
+  );
+}
+
+// --- SHARED CHAT UI ---
+function ChatList({ messages }: { messages: Message[] }) {
+  return (
+    <ScrollView style={styles.chatList}>
+      {messages.map((m: Message) => (
+        <View key={m.id} style={[styles.msg, m.isMe ? styles.myMsg : styles.theirMsg]}>
+          <Text style={m.isMe ? {color: 'white'} : {}}>{m.text}</Text>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  full: { flex: 1, padding: 40, paddingTop: 60 },
+  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
+  header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  inputRow: { flexDirection: 'row', marginBottom: 10 },
+  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5 },
+  chatList: { flex: 1, marginVertical: 20 },
+  msg: { padding: 10, borderRadius: 10, marginVertical: 4, maxWidth: '80%' },
+  myMsg: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
+  theirMsg: { alignSelf: 'flex-start', backgroundColor: '#E9E9EB' }
 });
